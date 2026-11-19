@@ -1,4 +1,4 @@
-# Sensus Ganoderma KLK GAP
+# Sensus Ganoderma
 
 Aplikasi sensus Ganoderma kelapa sawit berbasis web/PWA untuk pencatatan pokok, GPS marking, perhitungan *Disease Incidence* (DI), peta titik sebaran, dan ekspor CSV/GeoJSON/KML.
 
