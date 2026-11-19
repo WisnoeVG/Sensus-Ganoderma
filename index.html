@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1b5e20">
+  <meta name="description" content="Aplikasi Sensus Ganoderma Kelapa Sawit SOP KLK GAP - Kebun Tanjung Keliling. Mendukung GPS marking, perhitungan Disease Incidence, peta titik, dan ekspor CSV/GeoJSON/KML.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sensus Ganoderma">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <title>Sensus Ganoderma SOP KLK GAP - Kebun Tanjung Keliling</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #f1f5f9;
+    }
+    .tap-btn {
+      min-height: 48px;
+    }
+    .tab-panel {
+      animation: panelFadeIn 0.2s ease-out;
+    }
+    @keyframes panelFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #e2e8f0;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1b5e20;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="text-slate-900 pb-24 antialiased selection:bg-emerald-200">
+
+  <!-- Top Header -->
+  <header class="bg-[#1b5e20] text-white sticky top-0 z-40 shadow-lg border-b-2 border-emerald-900">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="bg-amber-400 text-[#1b5e20] p-2.5 rounded-xl font-extrabold shadow-sm shrink-0">
+          <i data-lucide="sprout" class="w-6 h-6"></i>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-extrabold text-sm sm:text-lg tracking-tight truncate">SENSUS GANODERMA • SOP KLK GAP</h1>
+          <p class="text-[11px] sm:text-xs text-emerald-100 truncate font-medium">
+            FY26 #1 • Kebun Tanjung Keliling • Mode Offline Aktif
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="conn-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950/70 text-emerald-100 border border-emerald-700">
+          <span id="conn-dot" class="w-2 h-2 rounded-full bg-amber-300"></span>
+          <span id="conn-text">Offline Ready</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Sub-bar Ringkasan Blok Aktif -->
+    <div class="bg-emerald-950/90 px-4 py-2 text-xs border-t border-emerald-800/80">
+      <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2 text-emerald-100">
+        <div class="flex items-center gap-1.5 font-semibold truncate">
+          <i data-lucide="map-pin" class="w-3.5 h-3.5 text-amber-400 shrink-0"></i>
+          <span id="hdr-block-label">Kebun Tanjung Keliling • Blok Belum Diatur</span>
+        </div>
+        <div class="flex items-center gap-3 sm:gap-4 shrink-0 font-bold">
+          <span>DI Blok: <strong id="hdr-di" class="text-amber-300">0.00%</strong></span>
+          <span>Terinfeksi: <strong id="hdr-infected" class="text-rose-300">0 pokok</strong></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-area" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Custom Modal Dialog (Pengganti alert/confirm) -->
+  <div id="modal-dialog" class="fixed inset-0 bg-slate-950/75 z-50 hidden items-center justify-center p-4 backdrop-blur-[2px]">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border-2 border-slate-200 tap-panel">
+      <div class="flex items-start gap-3 mb-3">
+        <div id="modal-icon-box" class="p-2.5 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 id="modal-title" class="font-extrabold text-base sm:text-lg text-slate-900">Konfirmasi</h3>
+          <p id="modal-message" class="text-xs sm:text-sm text-slate-700 mt-1 leading-relaxed"></p>
+        </div>
+      </div>
+      <div id="modal-actions" class="flex items-center justify-end gap-2.5 mt-5">
+        <button id="modal-btn-cancel" type="button" class="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 tap-btn">
+          Batal
+        </button>
+        <button id="modal-btn-ok" type="button" class="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-[#1b5e20] hover:bg-emerald-900 text-white tap-btn">
+          Lanjutkan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto px-3 sm:px-4 pt-4 space-y-4">
+
+    <!-- ========================================================= -->
+    <!-- TAB 1: IDENTITAS BLOK & SUB-BLOK                          -->
+    <!-- ========================================================= -->
+    <section id="panel-blok" class="tab-panel space-y-4">
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3.5 mb-4">
+          <div class="flex items-center gap-2.5">
+            <div class="bg-emerald-100 text-[#1b5e20] p-2.5 rounded-xl">
+              <i data-lucide="layers" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="font-extrabold text-base sm:text-lg text-slate-900">Identitas Blok & Sub-Blok Sensus</h2>
+              <p class="text-xs text-slate-600">Sensus rutin setiap 6 bulan (disarankan Juni &amp; Desember) • 100% pokok diperiksa</p>
+            </div>
+          </div>
+        </div>
+
+        <form id="block-form" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label for="blk-estate" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Kebun / Estate
+              </label>
+              <input id="blk-estate" type="text" required value="Kebun Tanjung Keliling"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-bold text-slate-900 bg-slate-50">
+            </div>
+            <div>
+              <label for="blk-petugas" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Petugas Sensus (Mandor / Kerani)
+              </label>
+              <input id="blk-petugas" type="text" placeholder="Contoh: Budi Santoso"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-semibold text-slate-900">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3.5">
+            <div>
+              <label for="blk-name" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Nama Blok / Field *
+              </label>
+              <input id="blk-name" type="text" required value="PM2012A" placeholder="Mis: PM2012A"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-extrabold text-slate-900 uppercase">
+            </div>
+            <div>
+              <label for="blk-sub" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Sub-Blok (Dipisah Jalan)
+              </label>
+              <input id="blk-sub" type="text" value="Sub-Blok 1" placeholder="Mis: Sub-Blok 1 / Utara"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-semibold text-slate-900">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label for="blk-ha" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Luas (Ha) *
+              </label>
+              <input id="blk-ha" type="number" step="0.01" min="0.05" required value="30"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-extrabold text-slate-900">
+            </div>
+            <div>
+              <label for="blk-sph" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Original SPH (AAR) *
+              </label>
+              <input id="blk-sph" type="number" min="40" max="260" required value="148"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-extrabold text-slate-900">
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+              <div class="flex items-center justify-between mb-1">
+                <label for="blk-total-palms" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                  Total Pokok Awal *
+                </label>
+                <button type="button" id="btn-sync-palms" class="text-[11px] font-bold text-[#1b5e20] underline">
+                  Hitung Ha×SPH
+                </button>
+              </div>
+              <input id="blk-total-palms" type="number" min="1" required value="4440"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-emerald-300 bg-emerald-50/70 focus:border-[#1b5e20] focus:outline-none font-extrabold text-emerald-950">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label for="blk-periode" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Periode Sensus (6 Bln)
+              </label>
+              <select id="blk-periode" class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-bold text-slate-900 bg-white">
+                <option value="Juni">Juni (Semester 1)</option>
+                <option value="Desember">Desember (Semester 2)</option>
+              </select>
+            </div>
+            <div>
+              <label for="blk-tahun" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Tahun Sensus
+              </label>
+              <input id="blk-tahun" type="number" min="2020" max="2045" value="2026"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-bold text-slate-900">
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+              <label for="blk-prev-sanitised" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Sudah Disanitasi Sblmnya
+              </label>
+              <input id="blk-prev-sanitised" type="number" min="0" value="0"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-extrabold text-slate-900">
+            </div>
+          </div>
+
+          <div>
+            <label for="blk-age" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+              Kelompok Umur Tanaman / Skenario Lahan (SOP KLK GAP) *
+            </label>
+            <select id="blk-age" class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-bold text-slate-900 bg-white">
+              <option value="<=4">≤ 4 Tahun (Tanaman Muda / TBM — Segera Sanitasi &amp; Sisip)</option>
+              <option value="5-7">5 – 7 Tahun (Tanaman Muda — Segera Sanitasi &amp; Panduan Sisip)</option>
+              <option value="8-15" selected>8 – 15 Tahun (TM Produktif — Matriks DI &lt;2%, 3–10%, &gt;10%)</option>
+              <option value=">15">&gt; 15 Tahun (TM Tua — Matriks DI ≤2% dan &gt;2%)</option>
+              <option value="replanting">Akan Replanting (100% Deboling &amp; Pulverisasi; Sanitasi ≥1 Thn Sblm Tumbang)</option>
+              <option value="sulit_alat">Area Sulit Alat Berat (Perlu Persetujuan GM Jika Meracuni Pokok Terinfeksi)</option>
+            </select>
+          </div>
+
+          <button type="submit" class="w-full bg-[#1b5e20] hover:bg-emerald-900 active:scale-[0.99] text-white font-extrabold py-3.5 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 tap-btn transition">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            <span>SIMPAN IDENTITAS BLOK &amp; LANJUT KE SENSUS</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Ringkasan Kriteria Sanitasi & Penandaan SOP KLK GAP -->
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200 space-y-4">
+        <div class="flex items-center gap-2.5 border-b border-slate-200 pb-3">
+          <div class="bg-amber-100 text-amber-800 p-2 rounded-xl">
+            <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm sm:text-base text-slate-900">Ringkasan Kriteria Sanitasi &amp; Penandaan SOP KLK GAP</h3>
+            <p class="text-xs text-slate-600">Definisi terinfeksi: badan buah jamur Ganoderma DAN/ATAU busuk kering pada batang</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div class="p-3.5 rounded-xl bg-rose-50/80 border border-rose-200 space-y-1.5">
+            <p class="font-extrabold text-rose-900">1. Tanaman ≤ 7 Tahun &amp; Cat Merah (&gt; 7 Tahun)</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-800">
+              <li><strong>≤ 7 tahun:</strong> Beri tanda (mis. ikat pita) untuk <strong>segera disanitasi</strong> baik berbuah maupun tidak.</li>
+              <li><strong>&gt; 7 tahun (Cat Merah):</strong> Cincin cat merah melingkari batang untuk pokok yang akan disanitasi (ada gejala kanopi &amp; tidak berbuah, atau sensus ke-2 setelah cat kuning untuk sanitasi dalam 12 bulan dengan interval sensus 6 bulan).</li>
+            </ul>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1.5">
+            <p class="font-extrabold text-amber-950">2. Cat Kuning (Dipertahankan / Pantau Sensus)</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-800">
+              <li><strong>Cat Kuning:</strong> Cincin cat kuning melingkari batang pada pokok &gt;7 tahun yang masih dipertahankan atau dijadwalkan sanitasi dalam 12 bulan (setelah sensus ke-2, interval 6 bulan).</li>
+              <li>Pada sensus berikutnya dapat ditambah cat kuning ke-2/seterusnya atau diubah ke cat merah sesuai kriteria umur &amp; % DI blok.</li>
+            </ul>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-1.5">
+            <p class="font-extrabold text-emerald-950">3. Replanting &amp; Area Sulit Alat Berat</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-800">
+              <li><strong>Replanting:</strong> Wajib <strong>100% deboling dan pulverisasi</strong> saat replanting tanpa memandang % serangan Ganoderma; sanitasi pokok terinfeksi dilakukan <strong>minimal 1 tahun sebelum penumbangan</strong>.</li>
+              <li><strong>Sulit Alat Berat:</strong> Manager dapat mengajukan persetujuan GM untuk meracuni pokok terinfeksi bila alat berat tidak dapat masuk.</li>
+            </ul>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 space-y-1.5">
+            <p class="font-extrabold text-blue-950">4. Penempatan Jaringan &amp; Mucuna bracteata</p>
+            <ul class="list-disc pl-4 space-y-1 text-slate-800">
+              <li><strong>≤ 4 tahun:</strong> Semua bagian tanaman (akar, bonggol, batang, kanopi) diletakkan di gawangan mati, jarak minimal <strong>2 m</strong> dari pokok terdekat.</li>
+              <li><strong>&gt; 4 tahun:</strong> Pisahkan cincangan terinfeksi (sebar tipis di dekat lubang galian, pangkal s/d 50 cm di atas batas infeksi) dan bagian sehat (gawangan mati ≥2 m). Wajib tanam <strong>Mucuna bracteata (Mb)</strong> pada bekas galian.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- TAB 2: FORM SENSUS POKOK & GPS MARKING                   -->
+    <!-- ========================================================= -->
+    <section id="panel-sensus" class="tab-panel hidden space-y-4">
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3.5 mb-4">
+          <div class="flex items-center gap-2.5">
+            <div class="bg-amber-100 text-amber-900 p-2.5 rounded-xl">
+              <i data-lucide="crosshair" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="font-extrabold text-base sm:text-lg text-slate-900">Input Sensus Pokok &amp; GPS Marking</h2>
+              <p id="sensus-blk-context" class="text-xs text-slate-600 font-medium">Blok PM2012A • Umur 8–15 Tahun</p>
+            </div>
+          </div>
+          <span id="sensus-live-di" class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold border border-emerald-300">
+            DI: 0.00%
+          </span>
+        </div>
+
+        <!-- Panduan Pembeda Frond Skirting vs Frond Snapping -->
+        <div class="mb-4 rounded-xl border border-amber-300 bg-amber-50/90 overflow-hidden">
+          <button type="button" id="btn-toggle-frond-guide" class="w-full px-3.5 py-2.5 flex items-center justify-between text-left font-extrabold text-xs sm:text-sm text-amber-950">
+            <span class="flex items-center gap-2">
+              <i data-lucide="info" class="w-4 h-4 text-amber-700 shrink-0"></i>
+              <span>Panduan: Pelepah Menggantung Ganoderma (Frond Skirting) vs Patah Pelepah (Frond Snapping)</span>
+            </span>
+            <i id="frond-chevron" data-lucide="chevron-down" class="w-4 h-4 shrink-0"></i>
+          </button>
+          <div id="frond-guide-body" class="hidden px-3.5 pb-3.5 pt-1 text-xs text-slate-800 border-t border-amber-200 space-y-2">
+            <p class="text-[11px] text-amber-900 font-semibold">
+              Catatan SOP KLK: Gejala kanopi menyerupai cekaman kekeringan; pokok dengan frond snapping tetap harus diperiksa karena tanaman terinfeksi Ganoderma juga dapat mengalami patah pelepah.
+            </p>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse text-[11px] bg-white rounded-lg overflow-hidden">
+                <thead>
+                  <tr class="bg-slate-800 text-white text-left">
+                    <th class="p-2 border border-slate-700">Karakteristik</th>
+                    <th class="p-2 border border-slate-700">Ganoderma (Frond Skirting)</th>
+                    <th class="p-2 border border-slate-700">Patah Pelepah (Frond Snapping)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="p-2 border border-slate-200 font-bold">Posisi &amp; Lokasi</td>
+                    <td class="p-2 border border-slate-200">Pelepah bawah; dekat pangkal pelepah</td>
+                    <td class="p-2 border border-slate-200">Pelepah tengah–atas; dekat anak daun belum berkembang (duri)</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2 border border-slate-200 font-bold">Perkembangan &amp; Pola</td>
+                    <td class="p-2 border border-slate-200">Lambat; berurutan dari pelepah tua/bawah ke tengah (kolaps merata bila parah)</td>
+                    <td class="p-2 border border-slate-200">Tiba-tiba; acak pada semua bagian kanopi</td>
+                  </tr>
+                  <tr>
+                    <td class="p-2 border border-slate-200 font-bold">Ketukan Gancu &amp; Jamur</td>
+                    <td class="p-2 border border-slate-200">Busuk kering &amp; <strong>suara berongga</strong> saat diketuk gancu; <strong>ada badan buah Ganoderma</strong></td>
+                    <td class="p-2 border border-slate-200">Sehat &amp; <strong>suara padat</strong> saat diketuk; <strong>tidak ada</strong> badan buah Ganoderma</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <form id="palm-form" class="space-y-4">
+          <!-- Nomor Baris & Nomor Pokok -->
+          <div class="grid grid-cols-2 gap-3.5">
+            <div>
+              <label for="palm-row" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Nomor Baris *
+              </label>
+              <input id="palm-row" type="number" min="1" required placeholder="Mis: 14"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-extrabold text-base text-slate-900">
+            </div>
+            <div>
+              <label for="palm-num" class="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1">
+                Nomor Pokok *
+              </label>
+              <input id="palm-num" type="number" min="1" required placeholder="Mis: 22"
+                class="w-full px-3.5 py-3 rounded-xl border-2 border-slate-300 focus:border-[#1b5e20] focus:outline-none font-extrabold text-base text-slate-900">
+            </div>
+          </div>
+
+          <!-- GPS Marking Box -->
+          <div class="p-3.5 sm:p-4 rounded-xl bg-slate-100 border-2 border-slate-300 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <i data-lucide="navigation" class="w-4 h-4 text-[#1b5e20]"></i>
+                GPS Marking Pokok
+              </span>
+              <span id="gps-status-pill" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                Belum diambil
+              </span>
+            </div>
+
+            <button type="button" id="btn-gps-capture" class="w-full bg-blue-700 hover:bg-blue-800 active:scale-[0.99] text-white font-extrabold py-3 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 tap-btn transition">
+              <i data-lucide="locate-fixed" class="w-5 h-5"></i>
+              <span id="btn-gps-label">AMBIL KOORDINAT GPS OTOMATIS</span>
+            </button>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label for="palm-lat" class="block text-[11px] font-bold text-slate-600 mb-0.5">Latitude (Manual/Auto)</label>
+                <input id="palm-lat" type="number" step="any" placeholder="-2.123456"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900">
+              </div>
+              <div>
+                <label for="palm-lng" class="block text-[11px] font-bold text-slate-600 mb-0.5">Longitude (Manual/Auto)</label>
+                <input id="palm-lng" type="number" step="any" placeholder="115.123456"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900">
+              </div>
+              <div class="col-span-2 sm:col-span-1">
+                <label for="palm-acc" class="block text-[11px] font-bold text-slate-600 mb-0.5">Akurasi (meter)</label>
+                <input id="palm-acc" type="number" step="0.1" min="0" placeholder="Mis: 5"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900">
+              </div>
+            </div>
+          </div>
+
+          <!-- Gejala Wajib Definisi Terinfeksi Ganoderma -->
+          <div class="p-3.5 sm:p-4 rounded-xl bg-rose-50/70 border-2 border-rose-200 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-extrabold uppercase tracking-wider text-rose-950">
+                Gejala Wajib Terinfeksi Ganoderma (Minimal 1)
+              </p>
+              <span class="text-[10px] font-bold bg-rose-200 text-rose-900 px-2 py-0.5 rounded-md">Wajib SOP</span>
+            </div>
+
+            <label class="flex items-start gap-3 p-3 rounded-xl bg-white border border-rose-200 cursor-pointer active:bg-rose-50">
+              <input id="sym-fruiting" type="checkbox" class="sym-input w-5 h-5 mt-0.5 accent-[#1b5e20] rounded cursor-pointer">
+              <div class="text-xs sm:text-sm">
+                <span class="font-bold text-slate-900 block">Badan Buah Jamur Ganoderma</span>
+                <span class="text-xs text-slate-600">Muncul badan buah jamur (termasuk pada pangkal batang atau area busuk atas)</span>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-3 p-3 rounded-xl bg-white border border-rose-200 cursor-pointer active:bg-rose-50">
+              <input id="sym-rot" type="checkbox" class="sym-input w-5 h-5 mt-0.5 accent-[#1b5e20] rounded cursor-pointer">
+              <div class="text-xs sm:text-sm">
+                <span class="font-bold text-slate-900 block">Busuk Kering pada Batang (Pangkal / Busuk Atas)</span>
+                <span class="text-xs text-slate-600">Busuk kering pangkal batang / suara berongga saat diketuk gancu, atau busuk atas/tumbang di tengah batang</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Gejala Kanopi & Status Berbuah -->
+          <div class="p-3.5 sm:p-4 rounded-xl bg-amber-50/70 border-2 border-amber-200 space-y-2.5">
+            <p class="text-xs font-extrabold uppercase tracking-wider text-amber-950">
+              Gejala Kanopi (Foliar Symptoms) &amp; Status Berbuah
+            </p>
+
+            <label class="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-amber-200 cursor-pointer">
+              <input id="sym-spear" type="checkbox" class="sym-input w-5 h-5 mt-0.5 accent-amber-600 rounded cursor-pointer">
+              <div class="text-xs sm:text-sm">
+                <span class="font-bold text-slate-900 block">Daun Tombak / Pelepah Muda Tidak Membuka</span>
+                <span class="text-xs text-slate-600">Banyak daun tombak atau pelepah muda belum membuka di kanopi</span>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-amber-200 cursor-pointer">
+              <input id="sym-skirting" type="checkbox" class="sym-input w-5 h-5 mt-0.5 accent-amber-600 rounded cursor-pointer">
+              <div class="text-xs sm:text-sm">
+                <span class="font-bold text-slate-900 block">Pelepah Bawah Menggantung (Ganoderma Frond Skirting)</span>
+                <span class="text-xs text-slate-600">Kolaps berurutan dari pelepah bawah ke tengah (bukan sekadar patah pelepah acak)</span>
+              </div>
+            </label>
+
+            <label class="flex items-start gap-3 p-2.5 rounded-xl bg-white border border-amber-200 cursor-pointer">
+              <input id="sym-yellow-canopy" type="checkbox" class="sym-input w-5 h-5 mt-0.5 accent-amber-600 rounded cursor-pointer">
+              <div class="text-xs sm:text-sm">
+                <span class="font-bold text-slate-900 block">Kanopi / Pelepah Muda Kecil, Pendek, Pucat / Menguning</span>
+                <span class="text-xs text-slate-600">Termasuk daun menguning/mengering pada satu sisi atau tanaman kerdil pada tanaman muda</span>
+              </div>
+            </label>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label for="palm-bearing" class="block text-xs font-extrabold text-slate-800 mb-1">
+                  Status Produktivitas Pokok *
+                </label>
+                <select id="palm-bearing" class="sym-input w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white font-bold text-xs sm:text-sm text-slate-900">
+                  <option value="Berbuah">Berbuah</option>
+                  <option value="Tidak Berbuah">Tidak Berbuah</option>
+                </select>
+              </div>
+              <div>
+                <label for="palm-census-round" class="block text-xs font-extrabold text-slate-800 mb-1">
+                  Riwayat Cat Kuning / Sensus
+                </label>
+                <select id="palm-census-round" class="sym-input w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white font-bold text-xs sm:text-sm text-slate-900">
+                  <option value="first">Sensus 1 (Baru Teridentifikasi / Belum Dicat Kuning)</option>
+                  <option value="second_yellow">Sudah Dicat Kuning Sblmnya (Sensus Ke-2 / Lanjutan)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Opsi Khusus Umur 5-7 Tahun -->
+            <div id="wrap-pos-57" class="hidden pt-1">
+              <label for="palm-pos-57" class="block text-xs font-extrabold text-blue-950 mb-1">
+                Posisi Pokok Terinfeksi (Panduan Sisip Umur 5–7 Tahun)
+              </label>
+              <select id="palm-pos-57" class="sym-input w-full px-3 py-2.5 rounded-xl border border-blue-300 bg-blue-50 font-bold text-xs sm:text-sm text-slate-900">
+                <option value="single">1 pokok terinfeksi → Sanitasi dan sisip pada titik tanam yang sama</option>
+                <option value="adjacent">2 atau lebih pokok terinfeksi bersebelahan → Sanitasi semua; sisip 1 pokok di antaranya pada baris yang sama</option>
+                <option value="roadside">Pokok terinfeksi di tepi jalan → Sanitasi dan sisip pada titik tanam yang sama</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="palm-notes" class="block text-xs font-extrabold text-slate-800 mb-1">
+                Catatan Tambahan
+              </label>
+              <input id="palm-notes" type="text" placeholder="Mis: Jamur di sisi selatan pangkal, dekat parit/jalan..."
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-medium text-slate-900">
+            </div>
+          </div>
+
+          <!-- Kotak Rekomendasi Keputusan Otomatis SOP KLK GAP -->
+          <div id="decision-card" class="rounded-2xl p-4 border-2 border-slate-300 bg-slate-100 transition-all">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+              <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                Rekomendasi Tindakan SOP KLK GAP
+              </span>
+              <span id="decision-tag" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-300 text-slate-800">
+                MENUNGGU GEJALA WAJIB
+              </span>
+            </div>
+            <h3 id="decision-heading" class="font-extrabold text-sm sm:text-base text-slate-900">
+              Centang badan buah jamur Ganoderma dan/atau busuk kering batang
+            </h3>
+            <p id="decision-body" class="text-xs text-slate-700 mt-1 leading-relaxed">
+              Sesuai SOP KLK GAP, tanaman terinfeksi Ganoderma didefinisikan jika terdapat badan buah jamur Ganoderma DAN/ATAU busuk kering pada batang.
+            </p>
+          </div>
+
+          <button type="submit" class="w-full bg-[#1b5e20] hover:bg-emerald-900 active:scale-[0.99] text-white font-extrabold py-4 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 tap-btn transition text-sm sm:text-base">
+            <i data-lucide="save" class="w-5 h-5"></i>
+            <span>SIMPAN POKOK TERSENSUS</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Daftar Pokok Tersensus (Cari, Filter, Hapus) -->
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200 space-y-3.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="font-extrabold text-sm sm:text-base text-slate-900">
+              Daftar Pokok Tersensus (<span id="list-total-count">0</span>)
+            </h3>
+            <p class="text-xs text-slate-600">Cari berdasarkan baris/pokok/catatan, filter tanda cat, atau hapus item</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div class="sm:col-span-2 relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input id="filter-search" type="text" placeholder="Cari baris, no. pokok, atau catatan..."
+              class="w-full pl-9 pr-3.5 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1b5e20] focus:outline-none text-xs sm:text-sm font-semibold">
+          </div>
+          <select id="filter-mark" class="px-3 py-2.5 rounded-xl border-2 border-slate-200 focus:border-[#1b5e20] focus:outline-none text-xs sm:text-sm font-bold bg-white">
+            <option value="ALL">Semua Tanda</option>
+            <option value="RED">Cat Merah / Sanitasi / Pita</option>
+            <option value="YELLOW">Cat Kuning (Pertahankan / Pantau)</option>
+          </select>
+        </div>
+
+        <div id="palm-records-container" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1"></div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- TAB 3: REKAP DI, POINT MAP & EXPORT GIS                   -->
+    <!-- ========================================================= -->
+    <section id="panel-rekap" class="tab-panel hidden space-y-4">
+      <!-- Summary Census & Disease Incidence (DI) -->
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3.5">
+          <div>
+            <h2 class="font-extrabold text-base sm:text-lg text-slate-900">Summary Census &amp; Disease Incidence (DI)</h2>
+            <p id="rekap-meta" class="text-xs text-slate-600 font-medium">Kebun Tanjung Keliling • Blok PM2012A</p>
+          </div>
+          <span id="rekap-di-badge" class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-950 font-extrabold text-sm border border-emerald-300">
+            DI: 0.00%
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div class="p-3 rounded-xl bg-slate-100 border border-slate-200">
+            <span class="text-[11px] font-bold text-slate-600 block">Total Pokok Awal</span>
+            <span id="sum-init-palms" class="text-lg font-extrabold text-slate-900">4,440</span>
+            <span id="sum-ha-sph" class="text-[10px] text-slate-500 block">30 Ha • SPH 148</span>
+          </div>
+
+          <div class="p-3 rounded-xl bg-amber-50 border-2 border-amber-300">
+            <span class="text-[11px] font-bold text-amber-900 block">Cat Kuning (Keep/12 Bln)</span>
+            <span id="sum-yellow" class="text-lg font-extrabold text-amber-700">0</span>
+            <span class="text-[10px] text-amber-800 block">Tercatat sesi ini</span>
+          </div>
+
+          <div class="p-3 rounded-xl bg-rose-50 border-2 border-rose-300">
+            <span class="text-[11px] font-bold text-rose-900 block">Cat Merah / Pita</span>
+            <span id="sum-red" class="text-lg font-extrabold text-rose-700">0</span>
+            <span class="text-[10px] text-rose-800 block">Tercatat sesi ini</span>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-900 text-white">
+            <span class="text-[11px] font-bold text-slate-300 block">Total Pokok Terinfeksi</span>
+            <span id="sum-total-inf" class="text-lg font-extrabold text-amber-400">0</span>
+            <span id="sum-sanitised-sub" class="text-[10px] text-slate-300 block">Termasuk 0 sanitasi sblmnya</span>
+          </div>
+        </div>
+
+        <!-- Balance Standing Palms, Balance SPH & % DI -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-xl bg-[#1b5e20] text-white">
+          <div class="flex sm:flex-col items-center sm:items-start justify-between">
+            <span class="text-[11px] font-bold text-emerald-200 uppercase">Balance of Standing Palms</span>
+            <span id="sum-standing" class="text-base sm:text-xl font-extrabold">4,440</span>
+          </div>
+          <div class="flex sm:flex-col items-center sm:items-start justify-between sm:border-x sm:border-emerald-800 sm:px-3">
+            <span class="text-[11px] font-bold text-emerald-200 uppercase">Balance SPH</span>
+            <span id="sum-balance-sph" class="text-base sm:text-xl font-extrabold">148.0</span>
+          </div>
+          <div class="flex sm:flex-col items-center sm:items-start justify-between">
+            <span class="text-[11px] font-bold text-amber-200 uppercase">% Disease Incidence (DI)</span>
+            <span id="sum-di-pct" class="text-base sm:text-xl font-extrabold text-amber-300">0.00%</span>
+          </div>
+        </div>
+
+        <p class="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <strong>Rumus DI SOP KLK GAP:</strong> Persentase serangan dihitung berdasarkan pokok awal blok/sub-blok dan mencakup seluruh tanaman terinfeksi Ganoderma (termasuk cat kuning yang dipertahankan/dipantau, cat merah sanitasi, dan pokok yang sudah disanitasi).
+        </p>
+      </div>
+
+      <!-- Point Map Interaktif -->
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-1.5">
+              <i data-lucide="map" class="w-4 h-4 text-[#1b5e20]"></i>
+              Point Map Interaktif Sebaran Titik GPS
+            </h3>
+            <p class="text-xs text-slate-600">Ketuk/klik titik koordinat pada peta untuk melihat detail baris, pokok, dan tanda cat</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs font-bold">
+            <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-rose-600 inline-block"></span> Merah/Pita</span>
+            <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-400 border border-amber-700 inline-block"></span> Kuning</span>
+          </div>
+        </div>
+
+        <div class="relative w-full h-72 rounded-xl overflow-hidden border-2 border-slate-300 bg-slate-900">
+          <canvas id="point-map-canvas" class="w-full h-full block cursor-pointer"></canvas>
+          <div id="map-empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-4 text-center pointer-events-none">
+            <i data-lucide="map-pin-off" class="w-8 h-8 mb-1.5 text-slate-400"></i>
+            <p class="text-xs font-bold">Belum ada pokok tersensus dengan koordinat GPS (Latitude/Longitude).</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Ambil GPS atau isi Latitude &amp; Longitude di Tab Sensus untuk menampilkan titik pada peta.</p>
+          </div>
+        </div>
+
+        <!-- Detail Titik Terpilih -->
+        <div id="selected-point-card" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+          <span class="font-bold text-slate-500">Klik salah satu titik pada peta di atas untuk melihat rincian pokok.</span>
+        </div>
+      </div>
+
+      <!-- Export GIS & CSV + Reset Data -->
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-1.5">
+              <i data-lucide="download" class="w-4 h-4 text-[#1b5e20]"></i>
+              Ekspor Data Lapangan &amp; Manajemen Penyimpanan
+            </h3>
+            <p class="text-xs text-slate-600">Unduh rekap sensus untuk Excel, QGIS, atau MapInfo Pro / Google Earth</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <button type="button" id="btn-export-csv" class="bg-[#1b5e20] hover:bg-emerald-900 text-white font-extrabold py-3 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm tap-btn transition">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span>Export CSV (Excel)</span>
+          </button>
+          <button type="button" id="btn-export-geojson" class="bg-blue-700 hover:bg-blue-800 text-white font-extrabold py-3 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm tap-btn transition">
+            <i data-lucide="globe" class="w-4 h-4"></i>
+            <span>Export GeoJSON (QGIS)</span>
+          </button>
+          <button type="button" id="btn-export-kml" class="bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold py-3 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm tap-btn transition">
+            <i data-lucide="map-pin" class="w-4 h-4"></i>
+            <span>Export KML (MapInfo)</span>
+          </button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div class="text-xs text-slate-600">
+            <strong class="text-slate-800">Penyimpanan Lokal:</strong> Data otomatis tersimpan di perangkat (<em>localStorage</em>).
+          </div>
+          <button type="button" id="btn-reset-data" class="px-4 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-extrabold text-xs flex items-center gap-1.5 tap-btn transition">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Reset Data Sensus</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panduan Teknis Sanitasi, Sisipan & Penempatan Jaringan -->
+      <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border-2 border-slate-200 space-y-3">
+        <h3 class="font-extrabold text-sm sm:text-base text-slate-900 flex items-center gap-1.5">
+          <i data-lucide="shovel" class="w-4 h-4 text-[#1b5e20]"></i>
+          Panduan Teknis Sanitasi, Sisipan &amp; Penempatan Jaringan (SOP KLK GAP)
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-800">
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+            <p class="font-extrabold text-slate-900">Lubang Sanitasi &amp; Pencincangan</p>
+            <ul class="list-disc pl-4 space-y-1">
+              <li><strong>Lubang galian:</strong> 1,5 m × 1,5 m × 1,5 m (bila muka air tinggi seperti rawa/gambut, kedalaman cukup 1 m).</li>
+              <li><strong>≤ 4 tahun:</strong> Keluarkan akar &amp; bonggol; letakkan semua cincangan/jaringan di gawangan mati minimal <strong>2 m</strong> dari pokok terdekat. Biarkan lubang min. 1 bulan sebelum ditimbun.</li>
+              <li><strong>&gt; 4 tahun:</strong> Cincang batang &amp; kanopi (tebal &lt; 10 cm). Pisahkan jaringan terinfeksi (sebar tipis di dekat lubang, pangkal s/d 50 cm di atas batas infeksi, jangan ditimbun tanah) dari bagian sehat (gawangan mati ≥ 2 m).</li>
+            </ul>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
+            <p class="font-extrabold text-emerald-950">Penyisipan &amp; Mucuna bracteata</p>
+            <ul class="list-disc pl-4 space-y-1">
+              <li><strong>Lubang sisip:</strong> Taburkan <strong>500 g RP</strong> dan <strong>100 g Libero</strong> pada lubang tanam pokok sisipan sehat.</li>
+              <li><strong>Pemupukan sisipan:</strong> Opsi 1: 3,5 kg AABN20M di piringan + mulsa plastik 1 bulan setelah tanam (lalu setengah dosis blok inti umur 12–24 bln; &gt;24 bln ikuti blok inti). Opsi 2 (tanpa AA Mulch): 400 g CRF di lubang tanam + mulsa EFB &amp; rekomendasi pupuk sisipan.</li>
+              <li><strong>Penutup tanah:</strong> Wajib menanam <strong>Mucuna bracteata (Mb)</strong> pada material bekas galian untuk menahan gulma berbahaya.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t-2 border-slate-300 z-40 shadow-2xl">
+    <div class="max-w-4xl mx-auto grid grid-cols-3">
+      <button type="button" id="nav-blok" onclick="switchTab('blok')" class="nav-tab py-2.5 px-2 flex flex-col items-center justify-center gap-1 text-[#1b5e20] bg-emerald-50 border-t-4 border-[#1b5e20] font-extrabold tap-btn transition">
+        <i data-lucide="layers" class="w-5 h-5"></i>
+        <span class="text-[11px] sm:text-xs">1. Blok</span>
+      </button>
+      <button type="button" id="nav-sensus" onclick="switchTab('sensus')" class="nav-tab py-2.5 px-2 flex flex-col items-center justify-center gap-1 text-slate-600 border-t-4 border-transparent font-bold tap-btn transition relative">
+        <i data-lucide="clipboard-plus" class="w-5 h-5"></i>
+        <span class="text-[11px] sm:text-xs">2. Sensus</span>
+      </button>
+      <button type="button" id="nav-rekap" onclick="switchTab('rekap')" class="nav-tab py-2.5 px-2 flex flex-col items-center justify-center gap-1 text-slate-600 border-t-4 border-transparent font-bold tap-btn transition relative">
+        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+        <span class="text-[11px] sm:text-xs">3. Rekap &amp; Peta</span>
+        <span id="nav-count-badge" class="hidden absolute top-1.5 right-5 sm:right-12 bg-rose-600 text-white text-[10px] font-extrabold px-1.5 rounded-full">0</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    // =========================================================================
+    // KONFIGURASI & STATE APLIKASI
+    // =========================================================================
+    const STORAGE_BLOCK_KEY = 'klk_tanjung_keliling_block_v1';
+    const STORAGE_RECORDS_KEY = 'klk_tanjung_keliling_records_v1';
+
+    let blockState = {
+      estate: 'Kebun Tanjung Keliling',
+      petugas: '',
+      blok: 'PM2012A',
+      subblok: 'Sub-Blok 1',
+      ha: 30,
+      sph: 148,
+      totalPalms: 4440,
+      periode: 'Juni',
+      tahun: 2026,
+      prevSanitised: 0,
+      ageGroup: '8-15'
+    };
+
+    let records = [];
+    let mapHitboxes = [];
+    let selectedMapRecordId = null;
+
+    // =========================================================================
+    // INISIALISASI
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+      loadPersistedData();
+      bindEvents();
+      syncBlockInputsFromState();
+      updateAllUI();
+      updateConnectivityBadge();
+    });
+
+    window.addEventListener('online', updateConnectivityBadge);
+    window.addEventListener('offline', updateConnectivityBadge);
+    window.addEventListener('resize', () => {
+      if (!document.getElementById('panel-rekap').classList.contains('hidden')) {
+        renderPointMap();
+      }
+    });
+
+    function updateConnectivityBadge() {
+      const dot = document.getElementById('conn-dot');
+      const txt = document.getElementById('conn-text');
+      if (navigator.onLine) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        txt.textContent = 'Online • Offline Ready';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-pulse';
+        txt.textContent = 'Offline Mode';
+      }
+    }
+
+    function loadPersistedData() {
+      try {
+        const rawBlock = localStorage.getItem(STORAGE_BLOCK_KEY);
+        if (rawBlock) {
+          blockState = { ...blockState, ...JSON.parse(rawBlock) };
+        }
+        const rawRecords = localStorage.getItem(STORAGE_RECORDS_KEY);
+        if (rawRecords) {
+          const parsed = JSON.parse(rawRecords);
+          if (Array.isArray(parsed)) {
+            records = parsed;
+          }
+        }
+      } catch (err) {
+        console.error('Gagal memuat data tersimpan:', err);
+      }
+    }
+
+    function persistData() {
+      try {
+        localStorage.setItem(STORAGE_BLOCK_KEY, JSON.stringify(blockState));
+        localStorage.setItem(STORAGE_RECORDS_KEY, JSON.stringify(records));
+      } catch (err) {
+        showToast('Gagal menyimpan data ke memori lokal.', 'error');
+      }
+    }
+
+    // =========================================================================
+    // NAVIGASI TAB & TOAST / MODAL
+    // =========================================================================
+    function switchTab(tabName) {
+      ['blok', 'sensus', 'rekap'].forEach(name => {
+        const panel = document.getElementById(`panel-${name}`);
+        const navBtn = document.getElementById(`nav-${name}`);
+        const isTarget = name === tabName;
+        panel.classList.toggle('hidden', !isTarget);
+        if (isTarget) {
+          navBtn.classList.remove('text-slate-600', 'border-transparent', 'font-bold');
+          navBtn.classList.add('text-[#1b5e20]', 'bg-emerald-50', 'border-[#1b5e20]', 'font-extrabold');
+        } else {
+          navBtn.classList.remove('text-[#1b5e20]', 'bg-emerald-50', 'border-[#1b5e20]', 'font-extrabold');
+          navBtn.classList.add('text-slate-600', 'border-transparent', 'font-bold');
+        }
+      });
+
+      if (tabName === 'sensus') {
+        evaluateDecision();
+      } else if (tabName === 'rekap') {
+        updateAllUI();
+        setTimeout(renderPointMap, 40);
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function showToast(msg, type = 'success') {
+      const area = document.getElementById('toast-area');
+      const el = document.createElement('div');
+      let palette = 'bg-[#1b5e20] border-emerald-950 text-white';
+      if (type === 'error') palette = 'bg-rose-700 border-rose-950 text-white';
+      if (type === 'warning') palette = 'bg-amber-600 border-amber-800 text-white';
+
+      el.className = `${palette} px-4 py-3 rounded-xl shadow-xl border-2 text-xs sm:text-sm font-bold pointer-events-auto tab-panel`;
+      el.textContent = msg;
+      area.appendChild(el);
+
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.25s ease';
+        setTimeout(() => el.remove(), 250);
+      }, 2800);
+    }
+
+    function showModal({ title, message, okText = 'Lanjutkan', danger = false, onConfirm = null }) {
+      const modal = document.getElementById('modal-dialog');
+      const titleEl = document.getElementById('modal-title');
+      const msgEl = document.getElementById('modal-message');
+      const btnOk = document.getElementById('modal-btn-ok');
+      const btnCancel = document.getElementById('modal-btn-cancel');
+
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+      btnOk.textContent = okText;
+
+      if (danger) {
+        btnOk.className = 'px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 hover:bg-rose-700 text-white tap-btn';
+        btnCancel.classList.remove('hidden');
+      } else if (!onConfirm) {
+        btnOk.className = 'px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-[#1b5e20] hover:bg-emerald-900 text-white tap-btn';
+        btnCancel.classList.add('hidden');
+      } else {
+        btnOk.className = 'px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-[#1b5e20] hover:bg-emerald-900 text-white tap-btn';
+        btnCancel.classList.remove('hidden');
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      const close = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        btnOk.onclick = null;
+        btnCancel.onclick = null;
+      };
+
+      btnCancel.onclick = close;
+      btnOk.onclick = () => {
+        close();
+        if (typeof onConfirm === 'function') onConfirm();
+      };
+    }
+
+    // =========================================================================
+    // EVENT BINDINGS
+    // =========================================================================
+    function bindEvents() {
+      // Auto-hitung Total Pokok Awal saat Ha atau SPH berubah
+      const recalcTotalPalms = () => {
+        const ha = parseFloat(document.getElementById('blk-ha').value) || 0;
+        const sph = parseInt(document.getElementById('blk-sph').value, 10) || 0;
+        document.getElementById('blk-total-palms').value = Math.max(1, Math.round(ha * sph));
+      };
+      document.getElementById('blk-ha').addEventListener('input', recalcTotalPalms);
+      document.getElementById('blk-sph').addEventListener('input', recalcTotalPalms);
+      document.getElementById('btn-sync-palms').addEventListener('click', recalcTotalPalms);
+
+      // Submit Form Blok
+      document.getElementById('block-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        blockState.estate = document.getElementById('blk-estate').value.trim() || 'Kebun Tanjung Keliling';
+        blockState.petugas = document.getElementById('blk-petugas').value.trim();
+        blockState.blok = document.getElementById('blk-name').value.trim().toUpperCase() || 'BLOK-1';
+        blockState.subblok = document.getElementById('blk-sub').value.trim();
+        blockState.ha = Math.max(0.01, parseFloat(document.getElementById('blk-ha').value) || 1);
+        blockState.sph = Math.max(1, parseInt(document.getElementById('blk-sph').value, 10) || 148);
+        blockState.totalPalms = Math.max(1, parseInt(document.getElementById('blk-total-palms').value, 10) || Math.round(blockState.ha * blockState.sph));
+        blockState.periode = document.getElementById('blk-periode').value;
+        blockState.tahun = parseInt(document.getElementById('blk-tahun').value, 10) || 2026;
+        blockState.prevSanitised = Math.max(0, parseInt(document.getElementById('blk-prev-sanitised').value, 10) || 0);
+        blockState.ageGroup = document.getElementById('blk-age').value;
+
+        persistData();
+        updateAllUI();
+        showToast(`Identitas blok ${blockState.blok} disimpan.`);
+        switchTab('sensus');
+      });
+
+      // Toggle Panduan Frond Skirting vs Snapping
+      document.getElementById('btn-toggle-frond-guide').addEventListener('click', () => {
+        const body = document.getElementById('frond-guide-body');
+        const chev = document.getElementById('frond-chevron');
+        const hidden = body.classList.toggle('hidden');
+        chev.style.transform = hidden ? 'rotate(0deg)' : 'rotate(180deg)';
+      });
+
+      // Ambil Koordinat GPS
+      document.getElementById('btn-gps-capture').addEventListener('click', captureGPSCoordinates);
+
+      // Evaluasi keputusan otomatis saat input gejala berubah
+      document.querySelectorAll('.sym-input').forEach(el => {
+        el.addEventListener('change', evaluateDecision);
+      });
+
+      // Submit Form Sensus Pokok
+      document.getElementById('palm-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const decision = evaluateDecision();
+        if (!decision.isInfected) {
+          showModal({
+            title: 'Belum Memenuhi Kriteria Terinfeksi',
+            message: 'Sesuai SOP KLK GAP, tanaman dinyatakan terinfeksi Ganoderma jika terdapat badan buah jamur Ganoderma DAN/ATAU busuk kering pada batang. Centang minimal salah satu gejala wajib tersebut jika pokok memang terinfeksi.'
+          });
+          return;
+        }
+
+        const rowNum = parseInt(document.getElementById('palm-row').value, 10);
+        const palmNum = parseInt(document.getElementById('palm-num').value, 10);
+        if (!rowNum || !palmNum) {
+          showToast('Nomor baris dan nomor pokok wajib diisi.', 'error');
+          return;
+        }
+
+        const duplicate = records.some(r => r.blok === blockState.blok && r.row === rowNum && r.palm === palmNum);
+        if (duplicate) {
+          showToast(`Baris ${rowNum} Pokok ${palmNum} sudah tercatat di blok ${blockState.blok}.`, 'warning');
+          return;
+        }
+
+        const latRaw = document.getElementById('palm-lat').value.trim();
+        const lngRaw = document.getElementById('palm-lng').value.trim();
+        const accRaw = document.getElementById('palm-acc').value.trim();
+
+        const lat = latRaw !== '' && !Number.isNaN(Number(latRaw)) ? Number(latRaw) : null;
+        const lng = lngRaw !== '' && !Number.isNaN(Number(lngRaw)) ? Number(lngRaw) : null;
+        const acc = accRaw !== '' && !Number.isNaN(Number(accRaw)) ? Number(accRaw) : null;
+
+        const record = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          timestamp: new Date().toISOString(),
+          estate: blockState.estate,
+          petugas: blockState.petugas,
+          blok: blockState.blok,
+          subblok: blockState.subblok,
+          periode: `${blockState.periode} ${blockState.tahun}`,
+          ageGroup: blockState.ageGroup,
+          row: rowNum,
+          palm: palmNum,
+          lat,
+          lng,
+          accuracy: acc,
+          symptoms: decision.symptoms,
+          bearing: document.getElementById('palm-bearing').value,
+          censusRound: document.getElementById('palm-census-round').value,
+          pos57: document.getElementById('palm-pos-57').value,
+          notes: document.getElementById('palm-notes').value.trim(),
+          markCategory: decision.markCategory,
+          markLabel: decision.markLabel,
+          actionTitle: decision.actionTitle,
+          actionDetail: decision.actionDetail
+        };
+
+        records.unshift(record);
+        persistData();
+        updateAllUI();
+
+        // Reset field gejala & nomor pokok agar cepat input pokok berikutnya
+        document.getElementById('palm-num').value = '';
+        document.getElementById('palm-lat').value = '';
+        document.getElementById('palm-lng').value = '';
+        document.getElementById('palm-acc').value = '';
+        document.getElementById('palm-notes').value = '';
+        document.getElementById('sym-fruiting').checked = false;
+        document.getElementById('sym-rot').checked = false;
+        document.getElementById('sym-spear').checked = false;
+        document.getElementById('sym-skirting').checked = false;
+        document.getElementById('sym-yellow-canopy').checked = false;
+        document.getElementById('palm-census-round').value = 'first';
+
+        const gpsPill = document.getElementById('gps-status-pill');
+        gpsPill.textContent = 'Belum diambil';
+        gpsPill.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700';
+
+        evaluateDecision();
+        showToast(`Tersimpan: Baris ${rowNum} Pokok ${palmNum} (${decision.markLabel})`);
+      });
+
+      // Filter & Search Daftar Pokok
+      document.getElementById('filter-search').addEventListener('input', renderRecordsList);
+      document.getElementById('filter-mark').addEventListener('change', renderRecordsList);
+
+      // Klik pada Point Map Canvas
+      document.getElementById('point-map-canvas').addEventListener('click', handleMapCanvasClick);
+
+      // Tombol Export & Reset
+      document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+      document.getElementById('btn-export-geojson').addEventListener('click', exportGeoJSON);
+      document.getElementById('btn-export-kml').addEventListener('click', exportKML);
+      document.getElementById('btn-reset-data').addEventListener('click', handleResetData);
+    }
+
+    function syncBlockInputsFromState() {
+      document.getElementById('blk-estate').value = blockState.estate;
+      document.getElementById('blk-petugas').value = blockState.petugas;
+      document.getElementById('blk-name').value = blockState.blok;
+      document.getElementById('blk-sub').value = blockState.subblok;
+      document.getElementById('blk-ha').value = blockState.ha;
+      document.getElementById('blk-sph').value = blockState.sph;
+      document.getElementById('blk-total-palms').value = blockState.totalPalms;
+      document.getElementById('blk-periode').value = blockState.periode;
+      document.getElementById('blk-tahun').value = blockState.tahun;
+      document.getElementById('blk-prev-sanitised').value = blockState.prevSanitised;
+      document.getElementById('blk-age').value = blockState.ageGroup;
+    }
+
+    // =========================================================================
+    // PENGAMBILAN GPS
+    // =========================================================================
+    function captureGPSCoordinates() {
+      const label = document.getElementById('btn-gps-label');
+      const pill = document.getElementById('gps-status-pill');
+
+      if (!navigator.geolocation) {
+        showToast('Perangkat tidak mendukung Geolocation GPS.', 'error');
+        return;
+      }
+
+      label.textContent = 'MENGUNCI SINYAL GPS...';
+      pill.textContent = 'Mencari satelit...';
+      pill.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-950';
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = Number(position.coords.latitude.toFixed(6));
+          const lng = Number(position.coords.longitude.toFixed(6));
+          const acc = Math.round(position.coords.accuracy);
+
+          document.getElementById('palm-lat').value = lat;
+          document.getElementById('palm-lng').value = lng;
+          document.getElementById('palm-acc').value = acc;
+
+          label.textContent = 'PERBARUI KOORDINAT GPS';
+          pill.textContent = `Akurasi ±${acc} m`;
+          pill.className = acc <= 15
+            ? 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-950'
+            : 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-950';
+
+          showToast(`GPS terkunci (±${acc}m): ${lat}, ${lng}`);
+        },
+        () => {
+          label.textContent = 'COBA AMBIL GPS LAGI';
+          pill.textContent = 'Gagal GPS • Isi manual';
+          pill.className = 'text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-200 text-rose-950';
+          showToast('GPS gagal diambil. Pastikan izin lokasi aktif atau ketik Latitude/Longitude manual.', 'warning');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    // =========================================================================
+    // PERHITUNGAN SUMMARY CENSUS & DISEASE INCIDENCE (SOP KLK GAP)
+    // =========================================================================
+    function computeSummaryMetrics() {
+      const initPalms = Math.max(1, parseInt(blockState.totalPalms, 10) || Math.round(blockState.ha * blockState.sph) || 1);
+      const ha = Math.max(0.01, parseFloat(blockState.ha) || 1);
+      const prevSanitised = Math.max(0, parseInt(blockState.prevSanitised, 10) || 0);
+
+      const yellowCount = records.filter(r => r.markCategory === 'YELLOW').length;
+      const redCount = records.filter(r => r.markCategory === 'RED').length;
+      const sessionInfected = yellowCount + redCount;
+      const totalInfectedFromStart = sessionInfected + prevSanitised;
+
+      const standingPalms = Math.max(0, initPalms - prevSanitised);
+      const balanceSPH = standingPalms / ha;
+
+      // % Disease Incidence (DI) berdasarkan pokok awal & seluruh pokok terinfeksi (kuning, merah, dan tersanitasi)
+      const diTodayPct = (sessionInfected / initPalms) * 100;
+      const diFromStartPct = (totalInfectedFromStart / initPalms) * 100;
+
+      return {
+        initPalms,
+        ha,
+        prevSanitised,
+        yellowCount,
+        redCount,
+        sessionInfected,
+        totalInfectedFromStart,
+        standingPalms,
+        balanceSPH,
+        diTodayPct,
+        diFromStartPct
+      };
+    }
+
+    // =========================================================================
+    // MESIN KEPUTUSAN OTOMATIS SOP KLK GAP
+    // =========================================================================
+    function evaluateDecision() {
+      const hasFruiting = document.getElementById('sym-fruiting').checked;
+      const hasRot = document.getElementById('sym-rot').checked;
+      const hasSpear = document.getElementById('sym-spear').checked;
+      const hasSkirting = document.getElementById('sym-skirting').checked;
+      const hasYellowCanopy = document.getElementById('sym-yellow-canopy').checked;
+      const bearing = document.getElementById('palm-bearing').value;
+      const censusRound = document.getElementById('palm-census-round').value;
+      const pos57 = document.getElementById('palm-pos-57').value;
+
+      const wrap57 = document.getElementById('wrap-pos-57');
+      wrap57.classList.toggle('hidden', blockState.ageGroup !== '5-7');
+
+      const isInfected = hasFruiting || hasRot;
+      const hasFoliar = hasSpear || hasSkirting || hasYellowCanopy;
+      const isBearing = bearing === 'Berbuah';
+      const isSecondYellow = censusRound === 'second_yellow';
+
+      const card = document.getElementById('decision-card');
+      const tag = document.getElementById('decision-tag');
+      const heading = document.getElementById('decision-heading');
+      const body = document.getElementById('decision-body');
+
+      const symptoms = {
+        fruiting: hasFruiting,
+        rot: hasRot,
+        spear: hasSpear,
+        skirting: hasSkirting,
+        yellowCanopy: hasYellowCanopy
+      };
+
+      if (!isInfected) {
+        card.className = 'rounded-2xl p-4 border-2 border-slate-300 bg-slate-100 transition-all';
+        tag.className = 'px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-300 text-slate-800';
+        tag.textContent = 'BELUM TERINFEKSI';
+        heading.className = 'font-extrabold text-sm sm:text-base text-slate-900';
+        heading.textContent = 'Belum memenuhi definisi tanaman terinfeksi Ganoderma';
+        body.textContent = 'Definisi SOP KLK: ada badan buah jamur Ganoderma DAN/ATAU busuk kering pada batang. Jika hanya ada patah pelepah (frond snapping) tanpa gejala wajib, periksa kembali pangkal batang dan suara ketukan gancu.';
+        return { isInfected: false, symptoms };
+      }
+
+      const metrics = computeSummaryMetrics();
+      const di = metrics.diFromStartPct;
+      const age = blockState.ageGroup;
+
+      let markCategory = 'YELLOW';
+      let markLabel = 'Cat Kuning';
+      let actionTitle = '';
+      let actionDetail = '';
+
+      if (age === '<=4') {
+        markCategory = 'RED';
+        markLabel = 'Ikat Pita • Segera Sanitasi';
+        actionTitle = 'Segera Sanitasi (Ikat Pita) + Sisip di Titik Sama';
+        actionDetail = 'Umur ≤4 tahun: beri tanda (mis. ikat pita) untuk segera disanitasi. Gali lubang 1,5×1,5×1,5 m, keluarkan semua akar & bonggol, letakkan seluruh jaringan di gawangan mati ≥2 m dari pokok terdekat, biarkan lubang min. 1 bulan sebelum ditimbun, lalu sisip (500 g RP + 100 g Libero) & tanam Mucuna bracteata.';
+      } else if (age === '5-7') {
+        markCategory = 'RED';
+        markLabel = 'Ikat Pita • Segera Sanitasi';
+        actionTitle = 'Segera Sanitasi (Ikat Pita) — Umur 5–7 Tahun';
+        if (pos57 === 'adjacent') {
+          actionDetail = 'Beri tanda ikat pita untuk segera disanitasi. Panduan sisip (5–7 tahun, ≥2 pokok bersebelahan): sanitasi semua pokok terinfeksi dan sisip 1 pokok di antaranya pada baris yang sama (500 g RP + 100 g Libero; tanam Mucuna bracteata pada bekas galian).';
+        } else if (pos57 === 'roadside') {
+          actionDetail = 'Beri tanda ikat pita untuk segera disanitasi. Panduan sisip (5–7 tahun, tepi jalan): sanitasi dan sisip pada titik tanam yang sama (500 g RP + 100 g Libero; tanam Mucuna bracteata).';
+        } else {
+          actionDetail = 'Beri tanda ikat pita untuk segera disanitasi. Panduan sisip (5–7 tahun, 1 pokok terinfeksi): sanitasi dan sisip pada titik tanam yang sama (500 g RP + 100 g Libero; tanam Mucuna bracteata).';
+        }
+      } else if (age === '8-15') {
+        // Kriteria umur 8-15 tahun berdasarkan % serangan blok, gejala kanopi, dan status berbuah
+        if (hasFoliar && !isBearing) {
+          markCategory = 'RED';
+          markLabel = 'Cat Merah';
+          actionTitle = 'Beri Cat Merah — Segera Sanitasi';
+          actionDetail = `Umur 8–15 tahun (DI blok ${di.toFixed(2)}%): ada gejala kanopi dan tidak berbuah → beri cat merah melingkari batang untuk disanitasi.`;
+        } else if (di < 2) {
+          if ((hasFoliar && isBearing) || (!hasFoliar && !isBearing)) {
+            if (isSecondYellow) {
+              markCategory = 'RED';
+              markLabel = 'Cat Merah (Sensus Ke-2)';
+              actionTitle = 'Beri Cat Merah — Sanitasi dalam 12 Bulan';
+              actionDetail = `Umur 8–15 tahun (DI < 2%, saat ini ${di.toFixed(2)}%): sensus ke-2 (interval 6 bulan dari sensus 1 cat kuning) → beri cat merah untuk sanitasi dalam 12 bulan (ada atau tidak ada tandan buah).`;
+            } else {
+              markCategory = 'YELLOW';
+              markLabel = 'Cat Kuning (Sensus 1)';
+              actionTitle = 'Beri Cat Kuning — Sanitasi Setelah Sensus Ke-2 (12 Bln)';
+              actionDetail = `Umur 8–15 tahun (DI < 2%, saat ini ${di.toFixed(2)}%): Sensus 1 beri cat kuning; sanitasi dalam 12 bulan setelah sensus ke-2 (interval sensus 6 bulan).`;
+            }
+          } else {
+            markCategory = 'YELLOW';
+            markLabel = 'Cat Kuning (Pertahankan)';
+            actionTitle = 'Beri Cat Kuning — Pertahankan';
+            actionDetail = `Umur 8–15 tahun (DI < 2%, saat ini ${di.toFixed(2)}%): tanpa gejala kanopi dan berbuah → beri cat kuning dan pertahankan.`;
+          }
+        } else if (di <= 10) {
+          // Kategori 3-10% pada tabel SOP KLK
+          if (hasFoliar && isBearing) {
+            if (isSecondYellow) {
+              markCategory = 'RED';
+              markLabel = 'Cat Merah (Sensus Ke-2)';
+              actionTitle = 'Beri Cat Merah — Sanitasi dalam 12 Bulan';
+              actionDetail = `Umur 8–15 tahun (DI 3–10%, saat ini ${di.toFixed(2)}%): sensus ke-2 setelah cat kuning pada pokok bergejala kanopi & berbuah → beri cat merah untuk sanitasi dalam 12 bulan.`;
+            } else {
+              markCategory = 'YELLOW';
+              markLabel = 'Cat Kuning (Sensus 1)';
+              actionTitle = 'Beri Cat Kuning — Sanitasi Setelah Sensus Ke-2 (12 Bln)';
+              actionDetail = `Umur 8–15 tahun (DI 3–10%, saat ini ${di.toFixed(2)}%): ada gejala kanopi dan berbuah. Sensus 1 beri cat kuning; sanitasi dalam 12 bulan setelah sensus ke-2 (interval 6 bulan).`;
+            }
+          } else {
+            markCategory = 'YELLOW';
+            markLabel = 'Cat Kuning (Pertahankan)';
+            actionTitle = 'Beri Cat Kuning — Pertahankan';
+            actionDetail = `Umur 8–15 tahun (DI 3–10%, saat ini ${di.toFixed(2)}%): tanpa gejala kanopi (berbuah atau tidak berbuah) → beri cat kuning dan pertahankan.`;
+          }
+        } else {
+          // DI > 10%
+          markCategory = 'YELLOW';
+          markLabel = 'Cat Kuning (Pertahankan)';
+          actionTitle = 'Beri Cat Kuning — Pertahankan';
+          actionDetail = `Umur 8–15 tahun (DI > 10%, saat ini ${di.toFixed(2)}%): beri cat kuning dan pertahankan (kecuali gejala kanopi & tidak berbuah yang diberi cat merah).`;
+        }
+      } else if (age === '>15') {
+        // Kriteria umur > 15 tahun (DI <= 2% dan DI > 2%)
+        if (hasFoliar && !isBearing) {
+          markCategory = 'RED';
+          markLabel = 'Cat Merah';
+          actionTitle = 'Beri Cat Merah — Segera Sanitasi';
+          actionDetail = `Umur > 15 tahun (DI blok ${di.toFixed(2)}%): ada gejala kanopi dan tidak berbuah → beri cat merah untuk disanitasi.`;
+        } else if (di <= 2) {
+          if ((hasFoliar && isBearing) || (!hasFoliar && !isBearing)) {
+            if (isSecondYellow) {
+              markCategory = 'RED';
+              markLabel = 'Cat Merah (Sensus Ke-2)';
+              actionTitle = 'Beri Cat Merah — Sanitasi dalam 12 Bulan';
+              actionDetail = `Umur > 15 tahun (DI ≤ 2%, saat ini ${di.toFixed(2)}%): sensus ke-2 setelah cat kuning → beri cat merah untuk sanitasi dalam 12 bulan.`;
+            } else {
+              markCategory = 'YELLOW';
+              markLabel = 'Cat Kuning (Sensus 1)';
+              actionTitle = 'Beri Cat Kuning — Sanitasi Setelah Sensus Ke-2 (12 Bln)';
+              actionDetail = `Umur > 15 tahun (DI ≤ 2%, saat ini ${di.toFixed(2)}%): Sensus 1 beri cat kuning; sanitasi dalam 12 bulan setelah sensus ke-2 (interval 6 bulan).`;
+            }
+          } else {
+            markCategory = 'YELLOW';
+            markLabel = 'Cat Kuning (Pertahankan)';
+            actionTitle = 'Beri Cat Kuning — Pertahankan';
+            actionDetail = `Umur > 15 tahun (DI ≤ 2%, saat ini ${di.toFixed(2)}%): tanpa gejala kanopi dan berbuah → beri cat kuning dan pertahankan.`;
+          }
+        } else {
+          markCategory = 'YELLOW';
+          markLabel = 'Cat Kuning (Pertahankan)';
+          actionTitle = 'Beri Cat Kuning — Pertahankan';
+          actionDetail = `Umur > 15 tahun (DI > 2%, saat ini ${di.toFixed(2)}%): beri cat kuning dan pertahankan.`;
+        }
+      } else if (age === 'replanting') {
+        markCategory = 'RED';
+        markLabel = 'Cat Merah • Pra-Replanting';
+        actionTitle = 'Sanitasi ≥1 Tahun Sblm Tumbang + 100% Deboling & Pulverisasi';
+        actionDetail = 'Akan replanting: sanitasi semua pokok terinfeksi minimal 1 tahun sebelum penumbangan; saat replanting lakukan 100% deboling dan pulverisasi tanpa memandang % serangan Ganoderma, serta tanam Mucuna bracteata pada material bekas galian.';
+      } else {
+        // sulit_alat
+        markCategory = 'RED';
+        markLabel = 'Cat Merah • Perlu Persetujuan GM';
+        actionTitle = 'Area Sulit Alat Berat — Ajukan Persetujuan GM Jika Meracuni';
+        actionDetail = 'Area sulit dimasuki alat berat: Manager dapat meminta persetujuan GM untuk meracuni tanaman terinfeksi jika alat berat tidak dapat masuk.';
+      }
+
+      if (markCategory === 'RED') {
+        card.className = 'rounded-2xl p-4 border-2 border-rose-500 bg-rose-50 transition-all';
+        tag.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-rose-600 text-white';
+      } else {
+        card.className = 'rounded-2xl p-4 border-2 border-amber-500 bg-amber-50 transition-all';
+        tag.className = 'px-3 py-1 rounded-full text-xs font-extrabold bg-amber-400 text-amber-950 border border-amber-600';
+      }
+
+      tag.textContent = markLabel.toUpperCase();
+      heading.className = markCategory === 'RED'
+        ? 'font-extrabold text-sm sm:text-base text-rose-950'
+        : 'font-extrabold text-sm sm:text-base text-amber-950';
+      heading.textContent = actionTitle;
+      body.textContent = actionDetail;
+
+      return {
+        isInfected: true,
+        symptoms,
+        markCategory,
+        markLabel,
+        actionTitle,
+        actionDetail
+      };
+    }
+
+    // =========================================================================
+    // UPDATE UI RINGKASAN, DAFTAR POKOK & POINT MAP
+    // =========================================================================
+    function updateAllUI() {
+      const m = computeSummaryMetrics();
+      const subText = blockState.subblok ? ` • ${blockState.subblok}` : '';
+      const fullBlockLabel = `${blockState.estate} • ${blockState.blok}${subText}`;
+
+      document.getElementById('hdr-block-label').textContent = fullBlockLabel;
+      document.getElementById('hdr-di').textContent = `${m.diFromStartPct.toFixed(2)}%`;
+      document.getElementById('hdr-infected').textContent = `${m.totalInfectedFromStart} pokok`;
+
+      document.getElementById('sensus-blk-context').textContent =
+        `${blockState.blok}${subText} • Umur/Skenario: ${blockState.ageGroup} • ${blockState.periode} ${blockState.tahun}`;
+      document.getElementById('sensus-live-di').textContent = `DI: ${m.diFromStartPct.toFixed(2)}%`;
+
+      document.getElementById('rekap-meta').textContent =
+        `${fullBlockLabel} • Periode ${blockState.periode} ${blockState.tahun}`;
+      document.getElementById('rekap-di-badge').textContent = `DI: ${m.diFromStartPct.toFixed(2)}%`;
+
+      document.getElementById('sum-init-palms').textContent = m.initPalms.toLocaleString('id-ID');
+      document.getElementById('sum-ha-sph').textContent = `${blockState.ha} Ha • SPH ${blockState.sph}`;
+      document.getElementById('sum-yellow').textContent = m.yellowCount.toLocaleString('id-ID');
+      document.getElementById('sum-red').textContent = m.redCount.toLocaleString('id-ID');
+      document.getElementById('sum-total-inf').textContent = m.totalInfectedFromStart.toLocaleString('id-ID');
+      document.getElementById('sum-sanitised-sub').textContent = `Termasuk ${m.prevSanitised} sanitasi sblmnya`;
+
+      document.getElementById('sum-standing').textContent = m.standingPalms.toLocaleString('id-ID');
+      document.getElementById('sum-balance-sph').textContent = m.balanceSPH.toFixed(1);
+      document.getElementById('sum-di-pct').textContent = `${m.diFromStartPct.toFixed(2)}%`;
+
+      const badge = document.getElementById('nav-count-badge');
+      if (records.length > 0) {
+        badge.textContent = records.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      renderRecordsList();
+      if (!document.getElementById('panel-rekap').classList.contains('hidden')) {
+        renderPointMap();
+      }
+    }
+
+    function formatSymptomSummary(sym) {
+      const items = [];
+      if (sym.fruiting) items.push('Badan buah jamur');
+      if (sym.rot) items.push('Busuk kering batang');
+      if (sym.spear) items.push('Daun tombak');
+      if (sym.skirting) items.push('Frond skirting');
+      if (sym.yellowCanopy) items.push('Kanopi pucat/kuning');
+      return items.join(', ');
+    }
+
+    function renderRecordsList() {
+      const container = document.getElementById('palm-records-container');
+      const query = (document.getElementById('filter-search').value || '').trim().toLowerCase();
+      const markFilter = document.getElementById('filter-mark').value;
+
+      const filtered = records.filter(r => {
+        const matchesMark = markFilter === 'ALL' || r.markCategory === markFilter;
+        if (!matchesMark) return false;
+        if (!query) return true;
+        const haystack = `baris ${r.row} pokok ${r.palm} ${r.blok} ${r.markLabel} ${r.actionTitle} ${r.notes || ''}`.toLowerCase();
+        return haystack.includes(query);
+      });
+
+      document.getElementById('list-total-count').textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 px-4 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-xs font-semibold text-slate-500">
+            ${records.length === 0
+              ? 'Belum ada data pokok terinfeksi yang dicatat.'
+              : 'Tidak ada pokok yang cocok dengan filter/pencarian saat ini.'}
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(r => {
+        const isRed = r.markCategory === 'RED';
+        const pillClass = isRed
+          ? 'bg-rose-600 text-white'
+          : 'bg-amber-400 text-amber-950 border border-amber-600';
+        const boxClass = isRed
+          ? 'border-rose-200 bg-rose-50/40'
+          : 'border-amber-200 bg-amber-50/40';
+        const gpsStr = (r.lat !== null && r.lng !== null)
+          ? `GPS: ${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}${r.accuracy !== null ? ` (±${r.accuracy}m)` : ''}`
+          : 'GPS belum direkam';
+
+        return `
+          <div class="p-3.5 rounded-xl border-2 ${boxClass} flex items-start justify-between gap-2.5">
+            <div class="space-y-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-extrabold text-sm text-slate-900">Baris ${r.row} • Pokok ${r.palm}</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold ${pillClass}">${escapeHtml(r.markLabel)}</span>
+                <span class="text-[11px] font-semibold text-slate-600">(${escapeHtml(r.bearing)})</span>
+              </div>
+              <p class="text-xs font-bold text-slate-800">${escapeHtml(r.actionTitle)}</p>
+              <p class="text-[11px] text-slate-600">Gejala: ${escapeHtml(formatSymptomSummary(r.symptoms))}</p>
+              <p class="text-[11px] font-mono text-slate-600">${escapeHtml(gpsStr)}</p>
+              ${r.notes ? `<p class="text-[11px] italic text-slate-700">Catatan: ${escapeHtml(r.notes)}</p>` : ''}
+            </div>
+            <button type="button" onclick="deleteRecord('${r.id}')" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg shrink-0 tap-btn" title="Hapus pokok">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    function deleteRecord(id) {
+      const target = records.find(r => r.id === id);
+      const label = target ? `Baris ${target.row} Pokok ${target.palm}` : 'pokok ini';
+      showModal({
+        title: 'Hapus Catatan Pokok',
+        message: `Apakah Anda yakin ingin menghapus data ${label} dari daftar sensus?`,
+        okText: 'Hapus',
+        danger: true,
+        onConfirm: () => {
+          records = records.filter(r => r.id !== id);
+          if (selectedMapRecordId === id) {
+            selectedMapRecordId = null;
+            document.getElementById('selected-point-card').innerHTML =
+              '<span class="font-bold text-slate-500">Klik salah satu titik pada peta di atas untuk melihat rincian pokok.</span>';
+          }
+          persistData();
+          updateAllUI();
+          showToast(`${label} dihapus.`);
+        }
+      });
+    }
+
+    function handleResetData() {
+      if (records.length === 0) {
+        showToast('Tidak ada data sensus untuk di-reset.', 'warning');
+        return;
+      }
+      showModal({
+        title: 'Reset Seluruh Data Sensus',
+        message: 'Semua catatan pokok tersensus di perangkat akan dihapus permanen. Pastikan Anda sudah mengunduh CSV/GeoJSON/KML bila diperlukan.',
+        okText: 'Ya, Reset Semua',
+        danger: true,
+        onConfirm: () => {
+          records = [];
+          selectedMapRecordId = null;
+          persistData();
+          updateAllUI();
+          document.getElementById('selected-point-card').innerHTML =
+            '<span class="font-bold text-slate-500">Klik salah satu titik pada peta di atas untuk melihat rincian pokok.</span>';
+          showToast('Seluruh data sensus telah di-reset.');
+        }
+      });
+    }
+
+    // =========================================================================
+    // POINT MAP INTERAKTIF (CANVAS)
+    // =========================================================================
+    function renderPointMap() {
+      const canvas = document.getElementById('point-map-canvas');
+      const emptyState = document.getElementById('map-empty-state');
+      if (!canvas) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      // Latar gelap & grid koordinat
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      const gridStep = 32;
+      for (let x = 0; x <= rect.width; x += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, rect.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= rect.height; y += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(rect.width, y);
+        ctx.stroke();
+      }
+
+      const gpsPoints = records.filter(r => r.lat !== null && r.lng !== null && !Number.isNaN(r.lat) && !Number.isNaN(r.lng));
+      mapHitboxes = [];
+
+      if (gpsPoints.length === 0) {
+        emptyState.classList.remove('hidden');
+        ctx.restore();
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      const lats = gpsPoints.map(p => p.lat);
+      const lngs = gpsPoints.map(p => p.lng);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+
+      const padX = 44;
+      const padY = 36;
+      const plotW = Math.max(20, rect.width - padX * 2);
+      const plotH = Math.max(20, rect.height - padY * 2);
+
+      const spanLng = maxLng - minLng;
+      const spanLat = maxLat - minLat;
+
+      gpsPoints.forEach(pt => {
+        const nx = spanLng === 0 ? 0.5 : (pt.lng - minLng) / spanLng;
+        const ny = spanLat === 0 ? 0.5 : (pt.lat - minLat) / spanLat;
+
+        const cx = padX + nx * plotW;
+        const cy = rect.height - (padY + ny * plotH);
+        const isRed = pt.markCategory === 'RED';
+        const isSelected = pt.id === selectedMapRecordId;
+
+        if (isSelected) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, isSelected ? 8 : 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = isRed ? '#e11d48' : '#facc15';
+        ctx.fill();
+        ctx.lineWidth = isSelected ? 2.5 : 1.5;
+        ctx.strokeStyle = isSelected ? '#38bdf8' : '#ffffff';
+        ctx.stroke();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.fillText(`B${pt.row}-P${pt.palm}`, cx + 9, cy + 3);
+
+        mapHitboxes.push({
+          record: pt,
+          x: cx,
+          y: cy,
+          radius: 16
+        });
+      });
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.fillText(`Titik GPS: ${gpsPoints.length} pokok • Klik titik untuk detail`, 12, rect.height - 10);
+
+      ctx.restore();
+    }
+
+    function handleMapCanvasClick(event) {
+      const canvas = document.getElementById('point-map-canvas');
+      const rect = canvas.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const clickY = event.clientY - rect.top;
+
+      let closest = null;
+      let minDist = Infinity;
+
+      for (const hb of mapHitboxes) {
+        const dist = Math.hypot(clickX - hb.x, clickY - hb.y);
+        if (dist <= hb.radius && dist < minDist) {
+          minDist = dist;
+          closest = hb.record;
+        }
+      }
+
+      if (!closest) return;
+
+      selectedMapRecordId = closest.id;
+      renderPointMap();
+
+      const detailCard = document.getElementById('selected-point-card');
+      const badgeTone = closest.markCategory === 'RED'
+        ? 'bg-rose-600 text-white'
+        : 'bg-amber-400 text-amber-950 border border-amber-600';
+
+      detailCard.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <strong class="text-slate-900 text-sm">Blok ${escapeHtml(closest.blok)} • Baris ${closest.row} • Pokok ${closest.palm}</strong>
+          <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${badgeTone}">${escapeHtml(closest.markLabel)}</span>
+        </div>
+        <p class="font-bold text-slate-800">${escapeHtml(closest.actionTitle)}</p>
+        <p class="text-slate-600 mt-0.5">${escapeHtml(closest.actionDetail)}</p>
+        <p class="font-mono text-[11px] text-slate-500 mt-1">
+          Koordinat: ${closest.lat}, ${closest.lng}${closest.accuracy !== null ? ` (±${closest.accuracy}m)` : ''} • ${escapeHtml(closest.bearing)}
+        </p>
+      `;
+    }
+
+    // =========================================================================
+    // EKSPOR DATA (CSV, GEOJSON, KML)
+    // =========================================================================
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function csvCell(val) {
+      const str = val === null || val === undefined ? '' : String(val);
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+
+    function exportCSV() {
+      if (records.length === 0) {
+        showToast('Belum ada data pokok untuk di-export ke CSV.', 'warning');
+        return;
+      }
+
+      const m = computeSummaryMetrics();
+      const headers = [
+        'Kebun', 'Blok', 'Sub_Blok', 'Luas_Ha', 'Original_SPH', 'Total_Pokok_Awal',
+        'Periode_Sensus', 'Kelompok_Umur', 'Petugas', 'DI_Blok_Persen',
+        'Nomor_Baris', 'Nomor_Pokok', 'Latitude', 'Longitude', 'Akurasi_m',
+        'Badan_Buah_Jamur', 'Busuk_Kering_Batang', 'Daun_Tombak', 'Frond_Skirting',
+        'Kanopi_Kuning', 'Status_Berbuah', 'Tanda_Cat_Pita', 'Rekomendasi_Tindakan',
+        'Keterangan_SOP', 'Catatan', 'Waktu_Catat'
+      ];
+
+      const lines = [headers.map(csvCell).join(',')];
+      records.forEach(r => {
+        lines.push([
+          r.estate, r.blok, r.subblok, blockState.ha, blockState.sph, m.initPalms,
+          r.periode, r.ageGroup, r.petugas, m.diFromStartPct.toFixed(2),
+          r.row, r.palm, r.lat ?? '', r.lng ?? '', r.accuracy ?? '',
+          r.symptoms.fruiting ? 'Ya' : 'Tidak',
+          r.symptoms.rot ? 'Ya' : 'Tidak',
+          r.symptoms.spear ? 'Ya' : 'Tidak',
+          r.symptoms.skirting ? 'Ya' : 'Tidak',
+          r.symptoms.yellowCanopy ? 'Ya' : 'Tidak',
+          r.bearing, r.markLabel, r.actionTitle, r.actionDetail, r.notes, r.timestamp
+        ].map(csvCell).join(','));
+      });
+
+      const filename = `Sensus_Ganoderma_${blockState.blok}_${blockState.periode}_${blockState.tahun}.csv`;
+      downloadFile('\uFEFF' + lines.join('\r\n'), filename, 'text/csv;charset=utf-8;');
+      showToast(`File ${filename} berhasil diunduh.`);
+    }
+
+    function exportGeoJSON() {
+      const gpsRecords = records.filter(r => r.lat !== null && r.lng !== null && !Number.isNaN(r.lat) && !Number.isNaN(r.lng));
+      if (gpsRecords.length === 0) {
+        showToast('Tidak ada pokok dengan koordinat GPS untuk export GeoJSON.', 'warning');
+        return;
+      }
+
+      const geojson = {
+        type: 'FeatureCollection',
+        properties: {
+          kebun: blockState.estate,
+          blok: blockState.blok,
+          subblok: blockState.subblok,
+          periode: `${blockState.periode} ${blockState.tahun}`,
+          di_persen: Number(computeSummaryMetrics().diFromStartPct.toFixed(2))
+        },
+        features: gpsRecords.map(r => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [r.lng, r.lat]
+          },
+          properties: {
+            kebun: r.estate,
+            blok: r.blok,
+            subblok: r.subblok,
+            baris: r.row,
+            pokok: r.palm,
+            umur: r.ageGroup,
+            tanda: r.markLabel,
+            kategori_tanda: r.markCategory,
+            status_berbuah: r.bearing,
+            tindakan: r.actionTitle,
+            catatan: r.notes || ''
+          }
+        }))
+      };
+
+      const filename = `Ganoderma_${blockState.blok}_${blockState.periode}_${blockState.tahun}.geojson`;
+      downloadFile(JSON.stringify(geojson, null, 2), filename, 'application/geo+json;charset=utf-8;');
+      showToast(`File ${filename} berhasil diunduh.`);
+    }
+
+    function escapeXml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function exportKML() {
+      const gpsRecords = records.filter(r => r.lat !== null && r.lng !== null && !Number.isNaN(r.lat) && !Number.isNaN(r.lng));
+      if (gpsRecords.length === 0) {
+        showToast('Tidak ada pokok dengan koordinat GPS untuk export KML.', 'warning');
+        return;
+      }
+
+      const placemarks = gpsRecords.map(r => {
+        const styleId = r.markCategory === 'RED' ? 'redMark' : 'yellowMark';
+        const name = escapeXml(`B${r.row}-P${r.palm} (${r.markLabel})`);
+        const desc = escapeXml(
+          `Kebun: ${r.estate} | Blok: ${r.blok} ${r.subblok} | Baris: ${r.row}, Pokok: ${r.palm} | Tanda: ${r.markLabel} | Tindakan: ${r.actionTitle} | Berbuah: ${r.bearing}${r.notes ? ' | Catatan: ' + r.notes : ''}`
+        );
+        return `
+    <Placemark>
+      <name>${name}</name>
+      <description>${desc}</description>
+      <styleUrl>#${styleId}</styleUrl>
+      <Point>
+        <coordinates>${r.lng},${r.lat},0</coordinates>
+      </Point>
+    </Placemark>`;
+      }).join('');
+
+      const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${escapeXml(`Sensus Ganoderma ${blockState.blok} (${blockState.periode} ${blockState.tahun})`)}</name>
+    <Style id="redMark">
+      <IconStyle>
+        <color>ff0000ff</color>
+        <scale>1.15</scale>
+      </IconStyle>
+    </Style>
+    <Style id="yellowMark">
+      <IconStyle>
+        <color>ff00ffff</color>
+        <scale>1.15</scale>
+      </IconStyle>
+    </Style>${placemarks}
+  </Document>
+</kml>`;
+
+      const filename = `Ganoderma_${blockState.blok}_${blockState.periode}_${blockState.tahun}.kml`;
+      downloadFile(kml, filename, 'application/vnd.google-earth.kml+xml;charset=utf-8;');
+      showToast(`File ${filename} berhasil diunduh.`);
+    }
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch((err) => {
+          console.error('Registrasi Service Worker gagal:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
